@@ -1,0 +1,131 @@
+name: Update Epic Complexity
+
+on:
+  issues:
+    types: [opened, edited, deleted, labeled, unlabeled]
+  project_card:
+    types: [created, moved, deleted]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update parent epic complexity
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { graphql } = require("@octokit/graphql");
+
+            const graphqlWithAuth = graphql.defaults({
+              headers: { authorization: `token ${process.env.GITHUB_TOKEN}` },
+            });
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const issue_number = context.issue.number;
+
+            // IDs spécifiques à ton projet
+            const PROJECT_ID = "33";
+            const COMPLEXITY_FIELD_ID = "PVTF_lADOAKCy1c4Ay-OazgzoQO0"; // "Complexité"
+            const EPIC_COMPLEXITY_FIELD_ID = "PVTF_lADOAKCy1c4Ay-OazgzoQTk"; // "Complexité Epic"
+
+            // 1. Récupérer l’issue et ses sous-issues
+            const { repository } = await graphqlWithAuth(`
+              query($owner: String!, $repo: String!, $issue: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $issue) {
+                    id
+                    title
+                    projectItems(first: 10) {
+                      nodes {
+                        id
+                      }
+                    }
+                    trackedInIssues(first: 50) {
+                      nodes {
+                        id
+                        number
+                        title
+                        projectItems(first: 10) {
+                          nodes {
+                            id
+                            fieldValues(first: 10) {
+                              nodes {
+                                ... on ProjectV2ItemFieldNumberValue {
+                                  field {
+                                    ... on ProjectV2FieldCommon {
+                                      id
+                                      name
+                                    }
+                                  }
+                                  number
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            `, { owner, repo, issue: issue_number });
+
+            const parentIssue = repository.issue;
+            if (!parentIssue) {
+              console.log("No parent issue found.");
+              return;
+            }
+
+            const subIssues = parentIssue.trackedInIssues.nodes;
+            if (subIssues.length === 0) {
+              console.log("No sub-issues linked.");
+              return;
+            }
+
+            // 2. Calculer la somme des complexités
+            let total = 0;
+            for (const sub of subIssues) {
+              for (const item of sub.projectItems.nodes) {
+                for (const field of item.fieldValues.nodes) {
+                  if (field.field && field.field.id === COMPLEXITY_FIELD_ID) {
+                    total += field.number || 0;
+                  }
+                }
+              }
+            }
+
+            console.log(`Total complexity of sub-issues: ${total}`);
+
+            // 3. Mettre à jour le champ "Complexité Epic" du parent
+            const parentItems = parentIssue.projectItems.nodes || [];
+            if (parentItems.length === 0) {
+              console.log("Parent issue is not in the project.");
+              return;
+            }
+
+            const parentItemId = parentItems[0].id;
+
+            await graphqlWithAuth(`
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: Float!) {
+                updateProjectV2ItemFieldValue(
+                  input: {
+                    projectId: $projectId
+                    itemId: $itemId
+                    fieldId: $fieldId
+                    value: { number: $value }
+                  }
+                ) {
+                  projectV2Item {
+                    id
+                  }
+                }
+              }
+            `, {
+              projectId: PROJECT_ID,
+              itemId: parentItemId,
+              fieldId: EPIC_COMPLEXITY_FIELD_ID,
+              value: total,
+            });
+
+            console.log(`Updated parent issue #${issue_number} with total = ${total}`);
