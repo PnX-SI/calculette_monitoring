@@ -1,0 +1,32 @@
+name: Update Epic Complexity
+
+on:
+  issues:
+    types: [opened, edited, deleted, labeled, unlabeled, closed, reopened]
+  project_card:
+    types: [created, moved, deleted]
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: pip install requests
+
+      - name: Run updater
+        env:
+          GITHUB_TOKEN: ${{ secrets.PROJECT_GITHUB_TOKEN }}
+          OWNER: ${{ github.repository_owner }}
+          REPO: ${{ github.event.repository.name }}
+          COMPLEXITY_FIELD_ID: PVTF_lADOAKCy1c4Ay-OazgzoQO0
+          EPIC_COMPLEXITY_FIELD_ID: PVTF_lADOAKCy1c4Ay-OazgzoQTk
+          PROJECT_ID: PVT_kwDOAKCy1c4Ay-Oa
+        run: python .github/scripts/update_epic_complexity.py ${{ github.event.issue.number }}
