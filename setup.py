@@ -7,8 +7,6 @@ with (root_dir / 'VERSION').open() as f:
     version = f.read()
 with (root_dir / 'README.md').open() as f:
     long_description = f.read()
-with (root_dir / 'requirements.in').open() as f:
-    requirements = f.read().splitlines()
 
 
 setuptools.setup(
@@ -23,14 +21,12 @@ setuptools.setup(
     packages=setuptools.find_packages('backend'),
     package_dir={'': 'backend'},
     package_data={},
-    install_requires=requirements,
     zip_safe=False,
     entry_points={
         'gn_module': [
             'code = calculatrice_monitoring:MODULE_CODE',
             'picto = calculatrice_monitoring:MODULE_PICTO',
             'blueprint = calculatrice_monitoring.blueprint:blueprint',
-            'config_schema = calculatrice_monitoring.conf_schema_toml:GnModuleSchemaConf',
             'migrations = calculatrice_monitoring:migrations',
         ],
     },
