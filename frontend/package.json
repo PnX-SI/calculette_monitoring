@@ -1,0 +1,7 @@
+{
+  "name": "gn_calculatrice",
+  "description": "Module générique de visualisation d'indicateurs personnalisés sur les protocoles de suivi",
+  "version": "0.1.0",
+  "license": "GNU GPL v3.0",
+  "dependencies": {}
+}
